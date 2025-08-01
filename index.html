@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mapa interactivo de Ecuador con información de envíos y ubicaciones">
+    <meta name="theme-color" content="#2563eb">
+    <title>Mapa Interactivo - Ecuador</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Mapa Ecuador">
+    
+    <!-- External CSS Libraries -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary-color: #64748b;
+            --background-light: #ffffff;
+            --background-dark: #0f172a;
+            --surface-light: #f8fafc;
+            --surface-dark: #1e293b;
+            --text-light: #0f172a;
+            --text-dark: #f8fafc;
+            --border-light: #e2e8f0;
+            --border-dark: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            background: var(--background-light);
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        body.dark {
+            background: var(--background-dark);
+            color: var(--text-dark);
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface-light);
+            border-bottom: 1px solid var(--border-light);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            transition: var(--transition);
+        }
+
+        .dark .header {
+            background: var(--surface-dark);
+            border-bottom-color: var(--border-dark);
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--surface-light);
+            color: var(--text-light);
+            border: 1px solid var(--border-light);
+        }
+
+        .dark .btn-secondary {
+            background: var(--surface-dark);
+            color: var(--text-dark);
+            border-color: var(--border-dark);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            color: var(--secondary-color);
+            transition: var(--transition);
+        }
+
+        .theme-toggle:hover {
+            background: var(--surface-light);
+        }
+
+        .dark .theme-toggle:hover {
+            background: var(--surface-dark);
+        }
+
+        /* Search Box */
+        .search-container {
+            position: relative;
+            min-width: 250px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            border: 1px solid var(--border-light);
+            border-radius: 0.5rem;
+            background: var(--background-light);
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        .dark .search-input {
+            border-color: var(--border-dark);
+            background: var(--background-dark);
+            color: var(--text-dark);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Custom Leaflet Controls */
+        .leaflet-control-layers {
+            background: var(--surface-light) !important;
+            border: 1px solid var(--border-light) !important;
+            border-radius: 0.5rem !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        .dark .leaflet-control-layers {
+            background: var(--surface-dark) !important;
+            border-color: var(--border-dark) !important;
+            color: var(--text-dark) !important;
+        }
+
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background: var(--surface-light) !important;
+            border: 1px solid var(--border-light) !important;
+            color: var(--text-light) !important;
+            transition: var(--transition) !important;
+        }
+
+        .dark .leaflet-control-zoom a {
+            background: var(--surface-dark) !important;
+            border-color: var(--border-dark) !important;
+            color: var(--text-dark) !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background: var(--primary-color) !important;
+            color: white !important;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-light);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Legend */
+        .legend {
+            background: var(--surface-light) !important;
+            border: 1px solid var(--border-light) !important;
+            border-radius: 0.5rem !important;
+            padding: 1rem !important;
+            box-shadow: var(--shadow-lg) !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+
+        .dark .legend {
+            background: var(--surface-dark) !important;
+            border-color: var(--border-dark) !important;
+            color: var(--text-dark) !important;
+        }
+
+        .legend h4 {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 0.25rem;
+            border: 1px solid var(--border-light);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0.75rem 1rem;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+
+            .header-title {
+                font-size: 1.125rem;
+            }
+
+            .search-container {
+                min-width: 200px;
+                order: 3;
+                width: 100%;
+            }
+
+            .header-controls {
+                gap: 0.5rem;
+            }
+        }
+
+        /* Accessibility */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Focus indicators */
+        .btn:focus,
+        .search-input:focus,
+        .theme-toggle:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* Custom popup styles */
+        .leaflet-popup-content-wrapper {
+            background: var(--surface-light) !important;
+            border-radius: 0.5rem !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        .dark .leaflet-popup-content-wrapper {
+            background: var(--surface-dark) !important;
+        }
+
+        .leaflet-popup-content {
+            color: var(--text-light) !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+
+        .dark .leaflet-popup-content {
+            color: var(--text-dark) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header-title">
+                <i class="fas fa-map-marked-alt"></i>
+                Mapa Interactivo Ecuador
+            </h1>
+            
+            <div class="header-controls">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        placeholder="Buscar ubicación..."
+                        aria-label="Buscar ubicación en el mapa"
+                        id="searchInput"
+                    >
+                </div>
+                
+                <button class="btn btn-secondary" id="locateBtn" aria-label="Encontrar mi ubicación">
+                    <i class="fas fa-crosshairs"></i>
+                    <span class="sr-only">Mi ubicación</span>
+                </button>
+                
+                <button class="btn btn-primary" id="fullscreenBtn" aria-label="Pantalla completa">
+                    <i class="fas fa-expand"></i>
+                </button>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Map Container -->
+        <main class="map-container">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Cargando mapa...</p>
+            </div>
+            <div id="map" role="application" aria-label="Mapa interactivo de Ecuador"></div>
+        </main>
+    </div>
+
+    <!-- External JavaScript Libraries -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // Theme management
+        class ThemeManager {
+            constructor() {
+                this.theme = localStorage.getItem('theme') || 'light';
+                this.init();
+            }
+
+            init() {
+                this.applyTheme();
+                document.getElementById('themeToggle').addEventListener('click', () => this.toggle());
+            }
+
+            toggle() {
+                this.theme = this.theme === 'light' ? 'dark' : 'light';
+                this.applyTheme();
+                localStorage.setItem('theme', this.theme);
+            }
+
+            applyTheme() {
+                document.body.classList.toggle('dark', this.theme === 'dark');
+                const icon = document.querySelector('#themeToggle i');
+                icon.className = this.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        // Map management
+        class MapManager {
+            constructor() {
+                this.map = null;
+                this.markers = [];
+                this.init();
+            }
+
+            init() {
+                this.initMap();
+                this.addControls();
+                this.addSampleData();
+                this.hideLoading();
+            }
+
+            initMap() {
+                // Initialize map centered on Ecuador
+                this.map = L.map('map', {
+                    center: [-0.23, -78.5],
+                    zoom: 8,
+                    zoomControl: false
+                });
+
+                // Add zoom control to custom position
+                L.control.zoom({
+                    position: 'bottomright'
+                }).addTo(this.map);
+
+                // Base layers
+                const baseLayers = {
+                    "Mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                        maxZoom: 19
+                    }),
+                    "Satélite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© <a href="https://www.esri.com/">Esri</a>',
+                        maxZoom: 19
+                    }),
+                    "Terreno": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                        attribution: '© <a href="https://opentopomap.org/">OpenTopoMap</a>',
+                        maxZoom: 17
+                    })
+                };
+
+                // Add default layer
+                baseLayers["Mapa"].addTo(this.map);
+
+                // Layer control
+                L.control.layers(baseLayers, null, {
+                    position: 'topright'
+                }).addTo(this.map);
+
+                // Add scale
+                L.control.scale({
+                    position: 'bottomleft',
+                    imperial: false
+                }).addTo(this.map);
+            }
+
+            addControls() {
+                // Locate button functionality
+                document.getElementById('locateBtn').addEventListener('click', () => {
+                    this.map.locate({ setView: true, maxZoom: 16 });
+                });
+
+                // Fullscreen functionality
+                document.getElementById('fullscreenBtn').addEventListener('click', () => {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen();
+                    } else {
+                        document.exitFullscreen();
+                    }
+                });
+
+                // Search functionality
+                const searchInput = document.getElementById('searchInput');
+                let searchTimeout;
+                
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        this.search(e.target.value);
+                    }, 500);
+                });
+
+                // Map event listeners
+                this.map.on('locationfound', (e) => {
+                    L.marker(e.latlng)
+                        .addTo(this.map)
+                        .bindPopup('Tu ubicación actual')
+                        .openPopup();
+                });
+
+                this.map.on('locationerror', () => {
+                    alert('No se pudo encontrar tu ubicación');
+                });
+            }
+
+            addSampleData() {
+                // Sample delivery zones with pricing
+                const deliveryZones = [
+                    {
+                        name: "Zona Norte",
+                        coords: [-0.15, -78.5],
+                        price: "$3.00",
+                        color: "#10b981"
+                    },
+                    {
+                        name: "Zona Centro",
+                        coords: [-0.23, -78.52],
+                        price: "$2.50",
+                        color: "#3b82f6"
+                    },
+                    {
+                        name: "Zona Sur",
+                        coords: [-0.31, -78.54],
+                        price: "$3.50",
+                        color: "#f59e0b"
+                    },
+                    {
+                        name: "Zona Valle",
+                        coords: [-0.35, -78.45],
+                        price: "$4.00",
+                        color: "#ef4444"
+                    }
+                ];
+
+                deliveryZones.forEach(zone => {
+                    const marker = L.circleMarker(zone.coords, {
+                        radius: 8,
+                        fillColor: zone.color,
+                        color: '#fff',
+                        weight: 2,
+                        fillOpacity: 0.8
+                    }).addTo(this.map);
+
+                    marker.bindPopup(`
+                        <div style="text-align: center;">
+                            <h3 style="margin: 0 0 8px 0; color: ${zone.color};">${zone.name}</h3>
+                            <p style="margin: 0; font-weight: 600;">Recargo por envío: ${zone.price}</p>
+                        </div>
+                    `);
+
+                    this.markers.push(marker);
+                });
+
+                // Add legend
+                this.addLegend(deliveryZones);
+            }
+
+            addLegend(zones) {
+                const legend = L.control({ position: 'bottomleft' });
+
+                legend.onAdd = function() {
+                    const div = L.DomUtil.create('div', 'legend');
+                    div.innerHTML = '<h4><i class="fas fa-truck"></i> Recargo por Envío</h4>';
+                    
+                    zones.forEach(zone => {
+                        div.innerHTML += `
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: ${zone.color};"></div>
+                                <span>${zone.name}: ${zone.price}</span>
+                            </div>
+                        `;
+                    });
+
+                    return div;
+                };
+
+                legend.addTo(this.map);
+            }
+
+            async search(query) {
+                if (!query || query.length < 3) return;
+
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ec&limit=5`
+                    );
+                    const data = await response.json();
+
+                    if (data.length > 0) {
+                        const result = data[0];
+                        const lat = parseFloat(result.lat);
+                        const lon = parseFloat(result.lon);
+                        
+                        this.map.setView([lat, lon], 14);
+                        
+                        L.marker([lat, lon])
+                            .addTo(this.map)
+                            .bindPopup(`<b>${result.display_name}</b>`)
+                            .openPopup();
+                    }
+                } catch (error) {
+                    console.warn('Error en búsqueda:', error);
+                }
+            }
+
+            hideLoading() {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            new ThemeManager();
+            new MapManager();
+        });
+
+        // Service Worker registration for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(registrationError => console.log('SW registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>
